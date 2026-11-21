@@ -10,6 +10,18 @@ BP_SUPPORT="${BP_SUPPORT:-$HOME/Library/Application Support/bridgeplay}"
 CONF="$BP_SUPPORT/gamefixes/$APPID.conf"
 
 hud_state() { grep -q '^MTL_HUD_ENABLED=1' "$CONF" 2>/dev/null && echo on || echo off; }
+nvapi_state() { grep -q '^NVAPI=1' "$CONF" 2>/dev/null && echo on || echo off; }
+
+set_key() { # key value
+  local key="$1" val="$2"
+  [ -f "$CONF" ] || { echo "missing $CONF (run install.sh once)" >&2; exit 1; }
+  [ -f "$CONF.gptk-bak" ] || cp -p "$CONF" "$CONF.gptk-bak"
+  if grep -q "^$key=" "$CONF"; then
+    sed -i '' "s/^$key=.*/$key=$val/" "$CONF"
+  else
+    printf '%s=%s\n' "$key" "$val" >> "$CONF"
+  fi
+}
 
 set_hud() {
   local want="$1"
@@ -26,9 +38,11 @@ set_hud() {
 
 case "${1:-stats}" in
   hud) set_hud "${2:-on}" ;;
+  nvapi) set_key NVAPI "$([ "${2:-on}" = on ] && echo 1 || echo 0)"; echo "NVAPI=$([ "${2:-on}" = on ] && echo 1 || echo 0) (next launch: DLSS menu appears if D3DMetal's shim loads)"; ;;
+  ab)   set_key NVAPI 1; set_hud 1; echo "A/B armed: NVAPI=1, MTL_HUD_ENABLED=1. Quit the game, start it from Steam, read GPU time in the overlay. Rollback: ./perf.sh nvapi off" ;;
   stats)
     PID="$(pgrep -f 'GTA5_Enhanced.exe' | head -1 || true)"
-    echo "HUD: $(hud_state)"
+    echo "HUD: $(hud_state)   NVAPI: $(nvapi_state)"
     if [ -z "$PID" ]; then echo "game not running"; exit 0; fi
     ps -o pid,%cpu,rss,etime -p "$PID"
     echo "threads: $(ps -M -p "$PID" | tail -n +2 | wc -l | tr -d ' ')"
@@ -37,5 +51,5 @@ case "${1:-stats}" in
     echo "below D3DMetal runs under Rosetta; MTL_HUD_ENABLED=1 separates GPU time"
     echo "from translation time on the next run."
     ;;
-  *) echo "usage: $0 [stats|hud on|hud off]" >&2; exit 2 ;;
+  *) echo "usage: $0 [stats|hud on|hud off|nvapi on|nvapi off|ab]" >&2; exit 2 ;;
 esac
