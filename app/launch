@@ -1,0 +1,42 @@
+#!/bin/bash
+# Native launcher shell for the patched GTA V Enhanced chain.
+# It does not run Wine itself: Steam + BridgePlay + the gamefix start the title
+# exactly as a normal Play press does, so the Steam stub and RGL token stay valid.
+set -euo pipefail
+
+APPID=3240220
+STEAM="$HOME/Library/Application Support/Steam"
+CONF="$HOME/Library/Application Support/bridgeplay/gamefixes/$APPID.conf"
+CHECK=0
+[ "${1:-}" = "--check" ] && CHECK=1
+
+alert() { osascript -e "display alert \"GTA V Enhanced\" message \"$1\" as critical" >/dev/null 2>&1 || true; }
+
+LIB=""
+for p in "$STEAM" $(sed -n 's/.*"path"[[:space:]]*"\(.*\)".*/\1/p' "$STEAM/steamapps/libraryfolders.vdf" 2>/dev/null); do
+  if [ -d "$p/steamapps/common/Grand Theft Auto V Enhanced" ]; then LIB="$p"; break; fi
+done
+
+if [ -z "$LIB" ]; then
+  [ "$CHECK" = 1 ] && { echo "game not found"; exit 1; }
+  alert "GTA V Enhanced is not in any Steam library."
+  exit 1
+fi
+
+GAME="$LIB/steamapps/common/Grand Theft Auto V Enhanced"
+ok=1
+[ -f "$GAME/d3d12core.dll" ] || { ok=0; echo "missing game/d3d12core.dll (run install.sh)"; }
+[ -f "$GAME/d3d12.dll" ] || { ok=0; echo "missing game/d3d12.dll (run install.sh)"; }
+grep -q 'd3d12core=n,b' "$CONF" 2>/dev/null || { ok=0; echo "gamefix lacks d3d12core=n,b (run install.sh)"; }
+
+if [ "$CHECK" = 1 ]; then
+  [ "$ok" = 1 ] && echo "patched chain present: $GAME"
+  exit $((1-ok))
+fi
+
+if [ "$ok" = 0 ]; then
+  alert "The D3DMetal patch is incomplete. Run install.sh in gta5-enhanced-gptk."
+  exit 1
+fi
+
+open "steam://rungameid/$APPID"

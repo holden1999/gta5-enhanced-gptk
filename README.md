@@ -133,6 +133,30 @@ Present                                    ok   0x00000000
 PASS
 ```
 
+## Native `.app` launcher
+
+```sh
+sh app/build-app.sh        # builds ~/Applications/GTA V Enhanced.app
+```
+
+The bundle runs a preflight (game folder patched, `d3d12core=n,b` in the gamefix) and then
+opens `steam://rungameid/3240220`, so Steam, BridgePlay and the gamefix start the title
+exactly as Play does. It is a launcher, **not** a recompiled binary: the game still runs
+x86-64 under Rosetta. What a real native build would take is written down in
+[docs/PORTING.md](docs/PORTING.md).
+
+## Performance
+
+```sh
+./perf.sh              # pid, CPU, RSS, thread count, HUD state
+./perf.sh hud on       # MTL_HUD_ENABLED=1 for the next launch
+```
+
+Levers that matter on this stack, largest first: DLSS mapped to MetalFX through D3DMetal's
+`nvapi64` shim (needs `NVAPI=1`; now viable since Apple's `dxgi` replaced Wine's),
+`ResScalingType` in `settings.xml`, and a frame cap under the panel refresh. GPU time and
+frame interval come from the Metal HUD, not from feel.
+
 ## Rebuilding the patch DLLs
 
 ```sh
